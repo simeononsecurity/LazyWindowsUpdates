@@ -1,5 +1,3 @@
-﻿### Copyright Simeon Miller (simeon.i.miller.ctr@pm.me) 2020 ###
-
 ##Install and Import AD Modules For Powershell v6
 Install-Module -Name WindowsCompatibility
 Import-Module -Name WindowsCompatibility 
@@ -37,7 +35,7 @@ foreach ($computer in $2012list) {
     if (test-Connection -Cn $computer -quiet) {
         Copy-Item $source -Destination \\$computer\"c$"\$dest -Recurse
     } else {
-        "$computer is not online, blame Sasso"
+        "$computer is not online"
     }
 
 }
@@ -66,7 +64,7 @@ foreach ($computer in $updatelist) {
     if (test-Connection -Cn $computer -quiet) {
         Copy-Item $psupdatesource -Destination \\$computer\"c$"\$psupdatedest -Recurse
     } else {
-        "$computer is not online, blame Sasso"
+        "$computer is not online"
     }
 
 }
@@ -79,4 +77,4 @@ Invoke-Command -Computer $updatelist -ScriptBlock {Import-Module PSWindowsUpdate
 
 ###SCHEDULE A REBOOT AT 1800###
 ##Schedule Update for EoD
-Invoke-Command -Computer $updatelist -ScriptBlock {$time = "18:00:00" ; $date = "06/17/2020" ; schtasks /create /tn “Scheduled Reboot” /tr “shutdown /r /t 0” /sc once /st $time /sd $date /ru “System”}
+Invoke-Command -Computer $updatelist -ScriptBlock {$time = "20:00:00" ; $date = "02/4/2019" ; schtasks /create /tn “Scheduled Reboot” /tr “shutdown /r /t 0” /sc once /st $time /sd $date /ru “System”}
