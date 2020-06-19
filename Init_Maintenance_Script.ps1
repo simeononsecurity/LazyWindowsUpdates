@@ -24,16 +24,10 @@ Get-Job
 #DEFINE ALL SERVER 2012 MACHINES IN DOMAIN
 $2012list = Get-ADComputer -Filter { OperatingSystem -Like '*Windows Server 2012*' } | Select -ExpandProperty Name
 
-#SOURCE FILE FOR SERVER 2012 WMI 5.1 UPGRADE
-$source = "c:\temp\Win8.1AndW2K12R2-KB3191564-x64.msu"
-
-#DESTINATION FOR THE FILE TO BE COPIED TO ON REMOTE MACHINE RELETIVE TO "C:\"
-$dest = "temp\"
-
-#Copy Win8.1AndW2K12R2-KB3191564-x64.msu to all Server 2012 machines in domain
+#Copy Win8.1AndW2K12R2-KB3191564-x64.msu from "C:\temp" to all Server 2012 machines in domain in "c:\temp"
 foreach ($computer in $2012list) {
     if (test-Connection -Cn $computer -quiet) {
-        Copy-Item $source -Destination \\$computer\"c$"\$dest -Recurse
+        Copy-Item "c:\temp\Win8.1AndW2K12R2-KB3191564-x64.msu" -Destination \\$computer\C$\temp -Recurse
     } else {
         "$computer is not online"
     }
@@ -41,8 +35,7 @@ foreach ($computer in $2012list) {
 }
 
 ####INSTALL WMI 5.1
-
-Invoke-Command -Computer $2012list -ScriptBlock {wusa.exe "C:\temp\Win8.1AndW2K12R2-KB3191564-x64.msu" /quiet /norestart}
+Invoke-Command -Computer $2012list -ScriptBlock {wusa.exe "C:\temp\Win8.1AndW2K12R2-KB3191564-x64.msu" /quiet /norestart} -AsJob
 
 ##Waiting
 Start-Sleep 30
@@ -53,16 +46,10 @@ Echo "Waiting to install PSWINDOWSUPDATE Module"
 #DEFINE ALL MACHINES IN DOMAIN
 $updatelist = Get-ADComputer -Filter * | Select -ExpandProperty Name
 
-#SOURCE FILE FOR PSWINDOWSUPDATE MODULE
-$psupdatesource = "c:\temp\PSWindowsUpdate.zip"
-
-#DESTINATION FOR THE FILE TO BE COPIED TO ON REMOTE MACHINE RELETIVE TO "C:\"
-$psupdatedest = "temp\"
-
 #Copy Win8.1AndW2K12R2-KB3191564-x64.msu to all Server 2012 machines in domain
 foreach ($computer in $updatelist) {
     if (test-Connection -Cn $computer -quiet) {
-        Copy-Item $psupdatesource -Destination \\$computer\"c$"\$psupdatedest -Recurse
+        Copy-Item "c:\temp\PSWindowsUpdate*" -Destination \\$computer\c$\temp -Recurse
     } else {
         "$computer is not online"
     }
@@ -73,7 +60,7 @@ foreach ($computer in $updatelist) {
 Invoke-Command -Computer $updatelist -ScriptBlock {Expand-Archive - Force -LiteralPath 'c:\temp\PSWindowsUpdate.zip' -DestinationPath "C:\Windows\System32\WindowsPowerShell\v1.0\Modules"}
 
 #####Install Latest Windows Updates#####
-Invoke-Command -Computer $updatelist -ScriptBlock {Import-Module PSWindowsUpdate; Get-WUInstall –AcceptAll -Verbose -IgnoreReboot}
+Invoke-Command -Computer $updatelist -ScriptBlock {Set-ExecutionPolicy Unrestricted; Import-Module PSWindowsUpdate; Get-WUInstall –AcceptAll -Verbose -IgnoreReboot}
 
 ###SCHEDULE A REBOOT AT 1800###
 ##Schedule Update for EoD
