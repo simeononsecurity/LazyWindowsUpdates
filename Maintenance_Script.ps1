@@ -7,20 +7,10 @@ Import-WinModule -Name ActiveDirectory
 Install-WindowsFeature RSAT-AD-PowerShell
 Import-Module ActiveDirectory
 
-####RUN GPUPDATE ON ALL ONLINE DOMAIN MEMBERS#####
-#DEFINE ALL SYSTEMS IN DOMAIN
-$gpupdatelist = Get-ADComputer -Filter * | Select -ExpandProperty Name
-#RUN GPUPDATE AND PROVIDE FEEDBACK
-Invoke-Command -Computer $gpupdatelist -ScriptBlock {gpupdate /force ; gpupdate /force ; gpupdate /force /boot} -AsJob
-Echo "Waiting 30 Seconds for Policy Update..."
-Echo "Expect the script to fail, but don't worry it worked"
-
-#Waiting
-Start-Sleep 30
-Get-Job
+$updatelist = Get-ADComputer -Filter * | Select -ExpandProperty Name
 
 #####Install Latest Windows Updates#####
-Invoke-Command -Computer $updatelist -ScriptBlock {Import-Module PSWindowsUpdate; Get-WUInstall –AcceptAll -Verbose -IgnoreReboot}
+Invoke-Command -Computer $updatelist -ScriptBlock {Set-ExecutionPolicy Unrestricted; Import-Module PSWindowsUpdate; Get-WUInstall –AcceptAll -Verbose -IgnoreReboot} -asjob
 
 ###SCHEDULE A REBOOT AT 1800###
 ##Schedule Update for EoD
