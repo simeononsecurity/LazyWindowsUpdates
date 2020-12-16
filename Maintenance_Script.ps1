@@ -5,7 +5,7 @@ Import-WinModule -Name ActiveDirectory
 #Install and Import Powershell AD Module
 Import-Module ActiveDirectory
 
-$updatelist = (Get-ADComputer -Filter *).Name
+$updatelist = (Get-ADComputer -Filter {(Enabled -eq $False)}).Name
 
 #####Install Latest Windows Updates#####
 ForEach ($Computer in $updatelist){
@@ -18,9 +18,9 @@ ForEach ($Computer in $updatelist){
         #Install-WindowsUpdate -AcceptAll -MicrosoftUpdate -AutoReboot
         } 
     Invoke-Command -Computer $Computer -ScriptBlock {
-        $time = "18:00:00" ; $date = "12/16/2020" ;
-        schtasks /create /tn "ScheduledReboot20200715" /tr "Shutdown -r -t 0" /sc once /st $time /sd $date /ru "System"
+        $time = "18:00:00" ;
+        $date = "12/16/2020" ;
+        schtasks /create /tn "ScheduledReboot $date" /tr "Shutdown -r -t 0" /sc once /st $time /sd $date /ru "System"
         }
 
 }
-
