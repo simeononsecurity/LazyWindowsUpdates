@@ -5,7 +5,7 @@ Import-WinModule -Name ActiveDirectory
 #Install and Import Powershell AD Module
 Import-Module ActiveDirectory
 
-$updatelist = (Get-ADComputer -Filter {(Enabled -eq $False)}).Name
+$updatelist = (Get-ADComputer -Filter {(Enabled -eq $True)}).Name
 
 #####Install Latest Windows Updates#####
 ForEach ($Computer in $updatelist){
