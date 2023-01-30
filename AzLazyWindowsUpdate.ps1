@@ -1,6 +1,6 @@
 Install-Module Az -Force
 Login-AzAccount
-Get-AzVM | Invoke-AzVMRunCommand -ScriptString {Install-Module PSWindowsUpdate -Force}
+#Get-AzVM | Invoke-AzVMRunCommand -ScriptString {Install-Module PSWindowsUpdate -Force}
 Get-AzVM | Invoke-AzVMRunCommand -ScriptString { Invoke-WebRequest -Uri https://github.com/guidovbrakel/LazyWindowsUpdates/raw/master/PSWindowsUpdate.zip -OutFile 'c:\temp\PSWindowsUpdate.zip' ; Expand-Archive -Force -LiteralPath 'c:\temp\PSWindowsUpdate.zip' -DestinationPath "C:\Windows\System32\WindowsPowerShell\v1.0\Modules"
 Get-AzVM | Invoke-AzVMRunCommand -ScriptString (Set-ExecutionPolicy Unrestricted; Import-Module PSWindowsUpdate; Get-WUInstall –AcceptAll -Verbose -IgnoreReboot}
 Sleep 30
