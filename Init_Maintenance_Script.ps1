@@ -1,66 +1,72 @@
-##Install and Import AD Modules For Powershell v6
-Install-Module -Name WindowsCompatibility
-Import-Module -Name WindowsCompatibility 
-Import-WinModule -Name ActiveDirectory
+# Install and Import AD Modules For PowerShell v6
+Install-Module -Name WindowsCompatibility -Force
+Import-Module -Name WindowsCompatibility -Force
+Import-WinModule -Name ActiveDirectory -Force
 
-#Install and Import Powershell AD Module
-Install-WindowsFeature RSAT-AD-PowerShell
-Import-Module ActiveDirectory
-
-####RUN GPUPDATE ON ALL ONLINE DOMAIN MEMBERS#####
-#DEFINE ALL SYSTEMS IN DOMAIN
-$gpupdatelist = (Get-ADComputer -Filter {(Enabled -eq $True)}).Name
-#RUN GPUPDATE AND PROVIDE FEEDBACK
-ForEach {$computer in $gpupdatelist}{
-Invoke-Command -Computer $computer -ScriptBlock {gpupdate /force ; gpupdate /force ; gpupdate /force /boot} -AsJob
+# Install and Import PowerShell AD Module
+if (-not (Get-WindowsFeature -Name RSAT-AD-PowerShell -ErrorAction SilentlyContinue)) {
+    Install-WindowsFeature -Name RSAT-AD-PowerShell -IncludeAllSubFeature -IncludeManagementTools
 }
-Echo "Waiting 30 Seconds for Policy Update..."
-Echo "Expect the script to fail, but don't worry it worked"
+Import-Module -Name ActiveDirectory -Force
 
-#Waiting
-Start-Sleep 30
-Get-Job
+# Run GPUPDATE on all online domain members
+$gpupdateList = Get-ADComputer -Filter "Enabled -eq 'True'" | Select-Object -ExpandProperty Name
 
-#####PART 1 UPDATE SERVER 2012 to WMI 5.1#####
+Write-Host "Running GPUPDATE on all online domain members..." -ForegroundColor Green
+$jobResults = Invoke-Command -ComputerName $gpupdateList -ScriptBlock {
+    Write-Host "Running GPUPDATE on $env:COMPUTERNAME" -ForegroundColor Yellow
+    gpupdate /force /boot
+} -AsJob
 
-#DEFINE ALL SERVER 2012 MACHINES IN DOMAIN
-$2012list = (Get-ADComputer -Filter { OperatingSystem -Like '*Windows Server 2012*' }).Name
-#Copy Win8.1AndW2K12R2-KB3191564-x64.msu from "C:\temp" to all Server 2012 machines in domain in "c:\temp"
-foreach ($computer in $2012list) {
-    if (test-Connection -Cn $computer -quiet) {
-        Copy-Item "c:\temp\Win8.1AndW2K12R2-KB3191564-x64.msu" -Destination \\$computer\C$\temp -Recurse
-        ####INSTALL WMI 5.1
-        Invoke-Command -Computer $computer -ScriptBlock {wusa.exe "C:\temp\Win8.1AndW2K12R2-KB3191564-x64.msu" /quiet /norestart} -AsJob
+Write-Host "Waiting 30 seconds for policy update..." -ForegroundColor Green
+Start-Sleep -Seconds 30
+Get-Job $jobResults.Id
+
+# Update Server 2012 to WMI 5.1
+$server2012List = Get-ADComputer -Filter "OperatingSystem -like '*Windows Server 2012*'" | Select-Object -ExpandProperty Name
+
+Write-Host "Updating Server 2012 machines to WMI 5.1..." -ForegroundColor Green
+foreach ($computer in $server2012List) {
+    if (Test-Connection -ComputerName $computer -Quiet) {
+        Write-Host "Copying Win8.1AndW2K12R2-KB3191564-x64.msu to $computer" -ForegroundColor Yellow
+        Copy-Item -Path "C:\temp\Win8.1AndW2K12R2-KB3191564-x64.msu" -Destination "\\$computer\C$\temp" -Force
+        Invoke-Command -ComputerName $computer -ScriptBlock {
+            Write-Host "Installing WMI 5.1 on $env:COMPUTERNAME" -ForegroundColor Yellow
+            wusa.exe "C:\temp\Win8.1AndW2K12R2-KB3191564-x64.msu" /quiet /norestart
+        } -AsJob
     } else {
-        "$computer is not online"
+        Write-Host "$computer is not online" -ForegroundColor Red
     }
-
 }
 
-##Waiting
-Start-Sleep 30
-Echo "Waiting to install PSWINDOWSUPDATE Module"
+Write-Host "Waiting 30 seconds to install PSWINDOWSUPDATE Module..." -ForegroundColor Green
+Start-Sleep -Seconds 30
 
-#####PART 2 INSTALL PSWINDOWSUPDATEMODULES#####
+# Install PSWindowsUpdate module
+Write-Host "Installing PSWindowsUpdate module on all machines in the domain..." -ForegroundColor Green
+$domainMachines = Get-ADComputer -Filter "Enabled -eq 'True'" | Select-Object -ExpandProperty Name
 
-#DEFINE ALL MACHINES IN DOMAIN
-$updatelist = (Get-ADComputer -Filter {(Enabled -eq $True)}).Name
-
-#Copy Win8.1AndW2K12R2-KB3191564-x64.msu to all Server 2012 machines in domain
-foreach ($computer in $updatelist) {
-    if (test-Connection -Cn $computer -quiet) {
-        Copy-Item "c:\temp\PSWindowsUpdate*" -Destination \\$computer\c$\temp -Recurse
-        ####Unzip PSWindowsUpdate
-        Invoke-Command -Computer $updatelist -ScriptBlock {Expand-Archive - Force -LiteralPath 'c:\temp\PSWindowsUpdate.zip' -DestinationPath "C:\Windows\System32\WindowsPowerShell\v1.0\Modules"}
-        #####Install Latest Windows Updates#####
-        Invoke-Command -Computer $updatelist -ScriptBlock {Set-ExecutionPolicy Unrestricted; Import-Module PSWindowsUpdate; Get-WUInstall –AcceptAll -Verbose -IgnoreReboot}
-        ##Schedule Update for EoD
-        Invoke-Command -Computer $updatelist -ScriptBlock {$time = "20:00:00" ; $date = "02/4/2019" ; schtasks /create /tn “Scheduled Reboot” /tr “shutdown /r /t 0” /sc once /st $time /sd $date /ru “System”}
+foreach ($computer in $domainMachines) {
+    if (Test-Connection -ComputerName $computer -Quiet) {
+        Write-Host "Copying PSWindowsUpdate to $computer" -ForegroundColor Yellow
+        Copy-Item -Path "C:\temp\PSWindowsUpdate*" -Destination "\\$computer\c$\temp" -Recurse -Force
+        Invoke-Command -ComputerName $computer -ScriptBlock {
+            Write-Host "Unzipping PSWindowsUpdate on $env:COMPUTERNAME" -ForegroundColor Yellow
+            Expand-Archive -Force -LiteralPath 'C:\temp\PSWindowsUpdate.zip' -DestinationPath "C:\Windows\System32\WindowsPowerShell\v1.0\Modules"
+        }
+        Invoke-Command -ComputerName $computer -ScriptBlock {
+            Write-Host "Installing latest Windows updates on $env:COMPUTERNAME" -ForegroundColor Yellow
+            Set-ExecutionPolicy -Scope Process -ExecutionPolicy Unrestricted -Force
+            Import-Module -Name PSWindowsUpdate -Force
+            Get-WUInstall –AcceptAll -Verbose -IgnoreReboot
+        }
+        Invoke-Command -ComputerName $computer -ScriptBlock {
+            Write-Host "Scheduling update for EoD on $env:COMPUTERNAME" -ForegroundColor Yellow
+            $time = "20:00:00"
+            $date = Get-Date -Year 2019 -Month 2 -Day 4
+            schtasks /create /tn "Scheduled Reboot" /tr "shutdown /r /t 0" /sc once /st $time /sd $date /ru "System"
+        }
     } else {
-        "$computer is not online"
+        Write-Host "$computer is not online" -ForegroundColor Red
     }
-
 }
-
-
-
